@@ -1,0 +1,10 @@
+.multiplier-parent [data-toggle="multiplier-add"] {
+	display: none;
+}
+.multiplier-parent .multiplier-row-first.multiplier-row-last [data-toggle="multiplier-remove"] {
+	display: none;
+}
+.multiplier-parent .multiplier-row-first [data-toggle="multiplier-add"],
+.multiplier-parent .multiplier-row-last [data-toggle="multiplier-add"] {
+	display: inline-block;
+}
