@@ -163,7 +163,11 @@
 	 * @param {int} index
 	 */
 	var RemoveCopy = function(self, index) {
-		self.$parent.find('.multiplier-row-first-child[data-multiplier-row='+index.toString()+']').trigger('removing.bs.multiplier.data-api', [self, index])
+		var ev = $.Event('removing.bs.multiplier.data-api');
+
+		self.$parent.find('.multiplier-row-first-child[data-multiplier-row='+index.toString()+']').trigger(ev, [self, index])
+		if (ev.result === false || ev.isDefaultPrevented()) return;
+
 		self.$parent.find('[data-multiplier-row='+index.toString()+']').detach()
 		ReindexRows(self)
 	}
