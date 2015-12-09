@@ -17,19 +17,23 @@
 	 * @constructor
 	 */
 	var Multiplier = function (element, options) {
-		var $element = $(element)
+		var $element = $(element),
+			self = this,
+			$source
 
 		this.$copy         = $element
 		this.$parent       = this.$copy.parent()
 		this.options       = $.extend({}, Multiplier.DEFAULTS, options)
-
-		var self = this
 
 		this.$parent.addClass('multiplier-parent')
 
 		if (this.options.unwrapParent) {
 			this.$copy = this.$copy.children()
 			$element.children(':first-child').unwrap()
+		}
+		if (options.source !== null && ($source = $(options.source+' > *')).length > 0) {
+			this.$copy = $source
+			$(options.source).detach()
 		}
 
 		if (this.options.addFirst) {
@@ -48,7 +52,9 @@
 		unwrapParent: false,
 		idxPlaceholder: null,
 		target: null,
+		source: null,
 		addFirst: true,
+		idxStartFrom: 0,
 		removeSelector: '[data-toggle="multiplier-remove"]',
 		addSelector: '[data-toggle="multiplier-add"]'
 	}
@@ -83,19 +89,28 @@
 	 */
 	var ReindexRows = function(self) {
 		var $rowsFirstChild = self.$parent.children('.multiplier-row-first-child'),
-			index = 0
+			$rowsValidFirstChild = self.$parent.children('.multiplier-row-first-child:not(.multiplier-ignore)'),
+			index = self.options.idxStartFrom
 
-		$rowsFirstChild.each(function(idx) {
+		$rowsFirstChild.each(function() {
+			var $this = $(this),
+				indexClass = ''
+
+			ReindexElement(self, $this, self.options.idxPlaceholder, index)
+			index++
+		})
+		index = 0
+		$rowsValidFirstChild.each(function() {
 			var $this = $(this),
 				indexClass = ''
 
 			if (index == 0) {
 				indexClass = 'multiplier-row-first'
 			}
-			if (index == $rowsFirstChild.length - 1) {
+			if (index == $rowsValidFirstChild.length - 1) {
 				indexClass += ' multiplier-row-last'
 			}
-			ReindexElement(self, $this, self.options.idxPlaceholder, index, indexClass)
+			ReplaceFirstLast(self, $this, indexClass)
 			index++
 		})
 	}
@@ -106,9 +121,8 @@
 	 * @param {jQuery} $el
 	 * @param {string} placeholder
 	 * @param {int} index
-	 * @param {string} indexClass
 	 */
-	var ReindexElement = function(self, $el, placeholder, index, indexClass) {
+	var ReindexElement = function(self, $el, placeholder, index) {
 		var getAllAttr = function($el) {
 				var result = {}
 
@@ -144,16 +158,50 @@
 
 				$el.children().each(function() { change($(this)) })
 
+				$el.removeClass('multiplier-row-first multiplier-row-last')
 				$el.attr('data-multiplier-row', index)
-				$el.removeClass('multiplier-row-first multiplier-row-last').addClass(indexClass)
-				$el.trigger('reindexed.bs.multiplier.data-api', [self, index])
 			},
-			$next = $el.next()
+			$next = $el.next(),
+			$target
 
 		change($el)
+		if (self.options.target !== null) {
+			$target = self.$parent.find(self.options.target)
+		}
 
 		while ($next.length > 0 && !$next.hasClass('multiplier-row-first-child')) {
-			change($next)
+			if ($target === null || ($target !== null && $target.length > 0 && $target[0] !== $next[0])) {
+				change($next)
+			}
+			$next = $next.next()
+		}
+	}
+
+	/**
+	 * Replaces elements position indicator CSS classes
+	 * @param {Multiplier} self
+	 * @param {jQuery} $el
+	 * @param {string} indicatorClass
+	 */
+	var ReplaceFirstLast = function(self, $el, indicatorClass) {
+		var change = function($el) {
+				$el.children().each(function() { change($(this)) })
+
+				$el.addClass(indicatorClass)
+				$el.trigger('reindexed.bs.multiplier.data-api', [self, $el.attr('data-multiplier-row')])
+			},
+			$next = $el.next(),
+			$target
+
+		change($el)
+		if (self.options.target !== null) {
+			$target = self.$parent.find(self.options.target)
+		}
+
+		while ($next.length > 0 && !$next.hasClass('multiplier-row-first-child')) {
+			if ($target === null || ($target !== null && $target.length > 0 && $target[0] !== $next[0])) {
+				change($next)
+			}
 			$next = $next.next()
 		}
 	}
@@ -165,10 +213,10 @@
 	var RemoveCopy = function(self, index) {
 		var ev = $.Event('removing.bs.multiplier.data-api');
 
-		self.$parent.find('.multiplier-row-first-child[data-multiplier-row='+index.toString()+']').trigger(ev, [self, index])
-		if (ev.result === false || ev.isDefaultPrevented()) return;
-
-		self.$parent.find('[data-multiplier-row='+index.toString()+']').detach()
+		self.$parent.find('.multiplier-row-first-child[data-multiplier-row="'+index.toString()+'"]').trigger(ev, [self, index])
+		if (ev.result !== false && !ev.isDefaultPrevented()) {
+			self.$parent.find('[data-multiplier-row="' + index.toString() + '"]').detach()
+		}
 		ReindexRows(self)
 	}
 
@@ -191,7 +239,7 @@
 			var $this = $(this)
 			if (!$this.data('bs.multiplier.hasClickListener')) {
 				$this.on('click.bs.multiplier.data-api', function(e) {
-					RemoveCopy(self, $(this).data('multiplierRow'))
+					RemoveCopy(self, $(this).attr('data-multiplier-row'))
 					e.preventDefault()
 					e.stopPropagation()
 				})
